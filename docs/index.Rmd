@@ -1,0 +1,169 @@
+---
+title: "Regression Analysis"
+output:
+  html_document:
+    fig_caption: yes
+    theme: cerulean
+    toc: true
+    toc_length: 3
+    toc_float: true
+---
+
+# Ceo Compensation
+
+```{r setup, include=FALSE} 
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+```
+
+## Load Data
+
+---
+
+```{r}
+library(readr)
+
+ceocomp <- read_csv("C:/Users/adity/Downloads/ceocomp.csv")
+
+set.seed(20887979)
+
+my.dat = ceocomp[sample(nrow(ceocomp),75),]
+
+plot(my.dat)
+
+```
+
+
+Conducting a preliminary examination of the scatter plots, we observe a somewhat positive correlation among variables such as tenure, age, experience, sales, and profit. This alignment is intuitively logical, as compensation naturally ought to increase when these factors experience a corresponding upward trend.
+
+## Constructing a Linear Model
+
+---
+
+```{r}
+my.dat1 <- subset(my.dat, my.dat$PROF>=0)
+my.dat1
+my.dat1$BACKGRD <- as.factor(my.dat1$BACKGRD)
+y <- my.dat1$COMP
+x1 <- my.dat1$AGE
+x2 <- my.dat1$EDUCATN
+x3 <- my.dat1$BACKGRD
+x4 <- my.dat1$TENURE
+x5 <- my.dat1$EXPER
+x6 <- my.dat1$SALES
+x7 <- my.dat1$VAL
+x8 <- my.dat1$PCNTOWN
+x9 <- my.dat1$PROF
+
+my.dat1lm = lm(y~x1+x2+x3+x4+x5+x6+x7+x8+x9)
+
+summary(my.dat1lm)
+
+```
+
+
+We can check model adequacy by assessing the R-Squared Value. Our model only accounts for 45% of the variation suggesting we have an inadequate model. We will create a reduced model without the Background Variate and perform an Anova Test to confirm our hypothesis. 
+
+```{r}
+my.dat2lm <- lm(y~x1+x2+x4+x5+x6+x7+x8+x9)
+anova(my.dat2lm,my.dat1lm)
+
+```
+
+Now since the p-values are above the significance level of 0.05 the variate background and compensation may be correlated causing an increase in variance. Thus we will use the reduced model going forward. 
+
+## Assessing the Reduced Model
+
+---
+
+```{r}
+plot(fitted(my.dat2lm), residuals(my.dat2lm), pch=19,xlab='fitted',ylab='residuals')
+
+
+qqnorm(residuals(my.dat2lm))
+
+```
+
+
+Based on the residual vs fitted plot it is evident that there is non-constant variation of errors hence making the model inadequate. Looking at the QQ plot we can see that the assumption of normal errors is not met since the line is not straight. 
+
+
+```{r}
+hist(y)
+
+```
+
+Creating a histogram for y we can see the right skewness in the distribution suggests that a log transformation might help to normalize the response. 
+
+```{r}
+newy <- log(y)
+
+my.dat3lm <- lm(newy~x1+x2+x4+x5+x6+x7+x8+x9)
+
+summary(my.dat3lm)
+
+plot(fitted(my.dat3lm), residuals(my.dat3lm), pch=19,xlab='fitted',ylab='residuals')
+
+
+qqnorm(residuals(my.dat3lm))
+
+```
+
+
+We can see the overall fit of the model got better since the Multiple R-Squared value increased by approximately .05. Looking at the individual paramters it is evident that the estimates and the standard errors got significantly smaller after the transformation was applied. 
+
+```{r}
+
+newx6 <- log(x6)
+newx7 <- log(x7)
+newx8 <- log(x8)
+newx9 <- log(x9)
+
+my.dat4lm <- lm(newy~x1+x2+x4+x5+newx6+newx7+newx8+newx9)
+
+summary(my.dat4lm)
+
+```
+
+The Multiple R Squared is now 0.5766 which is 9% better than our previous model. Thus we will now look to improve our model through backward selection using a threshold of a=0.15.
+
+## Improving Model Accuracy Through Backward Selection
+
+---
+
+```{r}
+
+my.dat5lm <- lm(newy~x1+x2+x4+newx6+newx7+newx8+newx9)
+
+summary(my.dat5lm)
+
+my.dat6lm <- lm(newy~x1+x2+x4+newx6+newx7+newx8)
+
+summary(my.dat6lm)
+```
+
+We first removed Experience (x5) from our model since it corresponds with the highest p value. Next we removed profit (x9) from our model. Thus we have now arrived at a suitable model since all the p-values are below the threshold. We can see that the preferred model based on the Adjusted R-Squared value is 51.47% which means the model provides moderate explanatory power in determining compensation. 
+
+## Anova Test
+
+---
+
+```{r}
+anova(my.dat6lm, my.dat4lm)
+```
+
+Since the p-value from this test is significantly greater than 0.05 we can confirm the reduced model is preferred. 
+
+## Checking Model Assumptions 
+
+---
+
+```{r}
+library(MASS)
+stud_resid <- studres(my.dat6lm)
+
+plot(fitted(my.dat4lm),stud_resid,pch=19,xlab='fitted',ylab='stud residuals')
+
+qqnorm(stud_resid)
+```
+
+In terms of the model assumptions, the model is adequate since the studentized residuals vs the fitted values have a random scatter and the qqplot is linear. 
